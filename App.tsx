@@ -106,11 +106,16 @@ function App() {
       
       interval = setInterval(() => {
         setLoadingProgress(prev => {
-          // Slow down as we get closer to 90%, wait for actual API response to hit 100%
-          const increment = prev < 50 ? 5 : prev < 80 ? 2 : prev < 90 ? 0.5 : 0;
-          return Math.min(prev + increment, 90);
+          let increment = 0;
+          if (prev < 30) increment = 5;       // Fast start
+          else if (prev < 60) increment = 2;  // Moderate
+          else if (prev < 80) increment = 1;  // Slowing
+          else if (prev < 90) increment = 0.5;// Crawling
+          else if (prev < 99) increment = 0.05; // Inchworming to indicate liveness
+          
+          return Math.min(prev + increment, 99);
         });
-      }, 200);
+      }, 100);
     }
     return () => clearInterval(interval);
   }, [gameState.currentView]);

@@ -64,11 +64,12 @@ const generateWithRetry = async (params: any, retries = 5, initialDelay = 2000) 
     try {
       return await ai.models.generateContent(params);
     } catch (error: any) {
+      // Check for Rate Limit (429) or Server Errors (500, 503)
       const isQuota = error.status === 429 || error.code === 429 || (error.message && error.message.includes('429')) || (error.message && error.message.includes('quota'));
-      const isServer = error.status === 503 || error.code === 503;
+      const isServer = error.status === 503 || error.code === 503 || error.status === 500 || error.code === 500;
 
       if ((isQuota || isServer) && attempt < retries) {
-        console.warn(`Gemini API 429/503 Error (Attempt ${attempt + 1}/${retries + 1}). Retrying in ${delay}ms...`);
+        console.warn(`Gemini API Error ${error.status || error.code} (Attempt ${attempt + 1}/${retries + 1}). Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2; // Exponential backoff: 2s, 4s, 8s, 16s, 32s
         attempt++;
@@ -142,9 +143,9 @@ export const startStory = async (
   } else {
     // --- LINEAR MODE (Dynamic Length) ---
     
-    // Calculate number of batches needed
-    // We aim for ~3500 words per batch for safety and detail.
-    const wordsPerBatch = 3500;
+    // REDUCED BATCH SIZE TO PREVENT 500 TIMEOUTS
+    // 1000 words is a safe limit for a single generated response with JSON schema.
+    const wordsPerBatch = 1000;
     const totalBatches = Math.max(1, Math.ceil(storyLength / wordsPerBatch));
     
     let fullStoryContent = "";
@@ -205,11 +206,11 @@ export const startStory = async (
         CONTEXT SO FAR: ${previousSummary}
         
         INSTRUCTIONS:
-        1. Write EXTENSIVE, DETAILED prose. 
+        1. Write engaging prose.
         2. ${batch.instruction}
         3. Structure the output with '## Chapter X: Title' headers for each chapter if the section is long enough.
         4. Return an EMPTY array [] for 'choices'.
-        5. Do not summarize. Describe sensory details, dialogue, and inner thoughts.
+        5. Do not summarize in the content field. Describe sensory details, dialogue, and inner thoughts.
         
         Output strictly in the requested JSON format.
       `;
